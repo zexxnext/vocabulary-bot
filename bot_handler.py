@@ -4,7 +4,11 @@ from pymongo import MongoClient
 
 class BotHandler:
 
-    client = MongoClient('mongodb://root:voct@mongoprovider.com:27017')
+    MONGO_URL = os.environ.get('MONGO_URL')
+    if not MONGO_URL:
+        MONGO_URL = 'mongodb://localhost:27017/rest';
+    
+    client = MongoClient(MONGO_URL)
     urls = client.vocabulary_bot.urls
 
     def send_message(self, chat_id, text):
