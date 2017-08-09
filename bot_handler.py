@@ -5,11 +5,11 @@ from pymongo import MongoClient
 
 class BotHandler:
 
-    MONGO_URL = os.environ.get('MONGO_URL')
-    if not MONGO_URL:
-        MONGO_URL = 'mongodb://localhost:27017/heroku_hrltjgtb';
+    MONGODB_URI = os.environ.get('MONGODB_URI')
+    if not MONGODB_URI:
+        MONGODB_URI = 'mongodb://localhost:27017/heroku_hrltjgtb';
     
-    client = MongoClient(MONGO_URL)
+    client = MongoClient(MONGODB_URI)
     urls = client.heroku_hrltjgtb.urls
 
     def send_message(self, chat_id, text):
