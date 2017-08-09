@@ -20,7 +20,7 @@ def main():
             command, *arguments = last_chat_text.split(" ", 1)
             w_bot.cmds[command](w_bot, last_chat_id, arguments)
         else:
-            w_urls = [url + last_chat_text for url in w_bot.urls[last_chat_id]]
+            w_urls = [url + last_chat_text for url in w_bot.find(last_chat_id)['urls']]
 
             for url in w_urls:
                 w_bot.send_message(last_chat_id, url)
