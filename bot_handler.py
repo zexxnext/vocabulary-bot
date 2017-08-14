@@ -57,7 +57,7 @@ class BotHandler:
 
     @d_urls
     def remove(self, find_urls, arguments):
-        find_urls = [url for url in find_urls if url not in arguments]
+        find_urls.remove(arguments)
 
     @d_urls
     def get_urls(self, find_urls, arguments):
