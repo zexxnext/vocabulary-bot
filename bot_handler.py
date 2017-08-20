@@ -1,6 +1,9 @@
 import os
 import requests  
 import datetime
+
+import converter
+
 from pymongo import MongoClient
 
 class BotHandler:
@@ -11,7 +14,8 @@ class BotHandler:
     
     client = MongoClient(MONGODB_URI)
     urls = client.heroku_hrltjgtb.urls
-
+    service_args = ['_id', 'chat_id']
+    
     def send_message(self, chat_id, text):
         method = 'sendMessage'
         params = {'chat_id': chat_id, 'text': text}
@@ -26,51 +30,96 @@ class BotHandler:
     def help_message(self, chat_id, arguments):
         text = '''/help - помощь,
 /start - о боте,
-/add url - добавить url,
-/remove url - удалить url,
-/list - список url
+/add [category] url - добавить url,
+/remove [category] url - удалить url,
+/list [category] - список url
+/cremove - удалить категорию
+/cadd category - добавить категорию
+/clist category - список категорий
         '''
         return self.send_message(chat_id, text)
+    
+    def find(self, chat_id, create_from, filter):
+        return [create_from(item, filter) for item in self.urls.find({'chat_id': chat_id})]
 
-    def d_urls(fn):
+    def find_list(self, chat_id, category):
+        return [category + ':'] + self.find(chat_id, converter.from_values, category) + ['\n']
+
+    def replace(self, chat_id, category, find_urls):
+        self.urls.replace_one({'chat_id': chat_id, category: {'$exists': True}}, \
+                  {'chat_id': chat_id, category: find_urls}, upsert=True)
+
+    def send(get_message):
+        def urls_decorator(fn):
+            def wrapped(self, chat_id, arguments):
+                if not self.urls.find({'chat_id': chat_id}):
+                    self.urls.insert_one({'chat_id': chat_id})
+         
+                answer = fn(self, chat_id, arguments)
+
+                self.send_message(chat_id, get_message(answer))
+            return wrapped
+        return urls_decorator
+    
+    def change_urls(fn):
         def wrapped(self, chat_id, arguments):
-            if not self.find(chat_id):
-                self.urls.insert_one({'chat_id': chat_id, 'urls': []})
+            category = arguments[0] if len(arguments) > 1 else None
+            arguments = arguments[1:] if len(arguments) > 1 else arguments
 
-            find_urls = self.find(chat_id)['urls']
-            
-            fn(self, find_urls, arguments)
+            find_urls = self.find(chat_id, converter.from_values, category)
+            find_urls, message = fn(self, find_urls, arguments)   
 
-            self.urls.replace_one({'chat_id': chat_id}, {'chat_id': chat_id, 'urls': find_urls})
+            self.replace(chat_id, category, find_urls)
 
-            for url in find_urls:
-                self.send_message(chat_id, url)
-            
+            return message
         return wrapped
 
-    def find(self, chat_id):
-        return self.urls.find_one({'chat_id': chat_id})
+    @send(converter.from_string)
+    @change_urls
+    def add_message(self, find_urls, arguments):
+        return find_urls + [url for url in arguments if url not in find_urls], \
+            'Добавлено успешно!'
 
-    @d_urls
-    def add(self, find_urls, arguments):
-        find_urls.extend(arguments)
+    @send(converter.from_string)
+    @change_urls
+    def remove_message(self, find_urls, arguments):
+        return [url for url in find_urls if url not in arguments], \
+            'Удалено успешно!'
 
-    @d_urls
-    def remove(self, find_urls, arguments):
-        find_urls.remove(arguments)
+    @send(converter.from_list)
+    def get_urls_message(self, chat_id, arguments):
+        if len(arguments) > 0:
+            return self.find_list(chat_id, arguments[0])
+        else:
+            categories = self.find(chat_id, converter.from_keys, self.service_args)
+            return [converter.from_list(self.find_list(chat_id, category)) \
+                    for category in categories]
 
-    @d_urls
-    def get_urls(self, find_urls, arguments):
-        pass
-     
+    @send(converter.from_list)
+    def get_categories_message(self, chat_id, arguments):
+        return self.find(chat_id, converter.from_keys, self.service_args)
+
+    @send(converter.from_string)
+    @change_urls
+    def add_category_message(self, find_urls, arguments):
+        return [], 'Категория добавлена успешно!'
+
+    @send(converter.from_string)
+    @change_urls
+    def remove_category_message(self, find_urls, arguments):
+        return [], 'Категория удалена успешно!'
+    
     cmds = {
         '/help': help_message,
         '/start': start_message,
-        '/add': add,
-        '/remove': remove,
-        '/list': get_urls
+        '/add': add_message,
+        '/remove': remove_message,
+        '/list': get_urls_message,
+        '/clist': get_categories_message,
+        '/cadd': add_category_message,
+        '/cremove': remove_category_message,
     }
-
+    
     def __init__(self, token):
         self.token = token
         self.api_url = "https://api.telegram.org/bot{}/".format(token)
