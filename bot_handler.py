@@ -95,6 +95,13 @@ class BotHandler:
             return [converter.from_list(self.find_list(chat_id, category)) \
                     for category in categories]
 
+    def find_urls(self, chat_id):
+        categories = self.find(chat_id, converter.from_keys, self.service_args)
+
+        flatten = lambda l: [item for sublist in l for item in sublist]
+        return converter.from_list(flatten([self.find(chat_id, converter.from_values, category) \
+             for category in categories])).split('\n')
+
     @send(converter.from_list)
     def get_categories_message(self, chat_id, arguments):
         return self.find(chat_id, converter.from_keys, self.service_args)
