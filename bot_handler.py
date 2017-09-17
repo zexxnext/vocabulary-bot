@@ -14,7 +14,8 @@ class BotHandler:
     
     client = MongoClient(MONGODB_URI)
     urls = client.heroku_hrltjgtb.urls
-    service_args = ['_id', 'chat_id']
+    not_service_args = lambda x: x not in ['_id', 'chat_id']
+    default_category = 'default'
     
     def send_message(self, chat_id, text):
         method = 'sendMessage'
@@ -33,22 +34,26 @@ class BotHandler:
 /add [category] url - добавить url,
 /remove [category] url - удалить url,
 /list [category] - список url
-/cremove - удалить категорию
+/cremove category - удалить категорию
 /cadd category - добавить категорию
-/clist category - список категорий
+/clist - список категорий
         '''
         return self.send_message(chat_id, text)
-    
+        
+    @converter.not_empty
     def find(self, chat_id, create_from, filter):
         return [create_from(item, filter) for item in self.urls.find({'chat_id': chat_id})]
 
     def find_list(self, chat_id, category):
-        return [category + ':'] + self.find(chat_id, converter.from_values, category) + ['\n']
+        return [category + ':'] + self.find(chat_id, converter.from_values, lambda x: x in category) + ['']
 
     def replace(self, chat_id, category, find_urls):
-        self.urls.replace_one({'chat_id': chat_id, category: {'$exists': True}}, \
+        self.urls.replace_one({'chat_id': chat_id, str(category): {'$exists': True}}, \
                   {'chat_id': chat_id, category: find_urls}, upsert=True)
-
+                  
+    def remove(self, chat_id, category, find_urls):
+        self.urls.remove({'chat_id': chat_id, str(category): {'$exists': True}})
+                  
     def send(get_message):
         def urls_decorator(fn):
             def wrapped(self, chat_id, arguments):
@@ -56,32 +61,36 @@ class BotHandler:
                     self.urls.insert_one({'chat_id': chat_id})
          
                 answer = fn(self, chat_id, arguments)
-
+                        
                 self.send_message(chat_id, get_message(answer))
             return wrapped
         return urls_decorator
     
-    def change_urls(fn):
-        def wrapped(self, chat_id, arguments):
-            category = arguments[0] if len(arguments) > 1 else None
-            arguments = arguments[1:] if len(arguments) > 1 else arguments
-
-            find_urls = self.find(chat_id, converter.from_values, category)
-            find_urls, message = fn(self, find_urls, arguments)   
-
-            self.replace(chat_id, category, find_urls)
-
-            return message
-        return wrapped
+    def change_urls(change):
+        def change_decorator(fn):
+            def wrapped(self, chat_id, arguments):
+                arguments = arguments[1:] if len(arguments) > 1 else arguments
+                category = arguments[0]
+                
+                find_urls = self.find(chat_id, converter.from_values, lambda x: x in category)   
+                if len(find_urls) == 0:
+                    category = self.default_category                
+                
+                find_urls, message = fn(self, find_urls, arguments)   
+                change(self, chat_id, category, find_urls)
+                    
+                return message
+            return wrapped
+        return change_decorator
 
     @send(converter.from_string)
-    @change_urls
+    @change_urls(replace)
     def add_message(self, find_urls, arguments):
         return find_urls + [url for url in arguments if url not in find_urls], \
             'Добавлено успешно!'
 
     @send(converter.from_string)
-    @change_urls
+    @change_urls(remove)
     def remove_message(self, find_urls, arguments):
         return [url for url in find_urls if url not in arguments], \
             'Удалено успешно!'
@@ -91,28 +100,28 @@ class BotHandler:
         if len(arguments) > 0:
             return self.find_list(chat_id, arguments[0])
         else:
-            categories = self.find(chat_id, converter.from_keys, self.service_args)
+            categories = self.find(chat_id, converter.from_keys, BotHandler.not_service_args)
             return [converter.from_list(self.find_list(chat_id, category)) \
                     for category in categories]
 
     def find_urls(self, chat_id):
-        categories = self.find(chat_id, converter.from_keys, self.service_args)
+        categories = self.find(chat_id, converter.from_keys, BotHandler.not_service_args)
 
         flatten = lambda l: [item for sublist in l for item in sublist]
-        return converter.from_list(flatten([self.find(chat_id, converter.from_values, category) \
+        return converter.from_list(flatten([self.find(chat_id, converter.from_values, BotHandler.not_service_args) \
              for category in categories])).split('\n')
 
     @send(converter.from_list)
     def get_categories_message(self, chat_id, arguments):
-        return self.find(chat_id, converter.from_keys, self.service_args)
+        return self.find(chat_id, converter.from_keys, BotHandler.not_service_args)
 
     @send(converter.from_string)
-    @change_urls
+    @change_urls(replace)
     def add_category_message(self, find_urls, arguments):
         return [], 'Категория добавлена успешно!'
 
     @send(converter.from_string)
-    @change_urls
+    @change_urls(remove)
     def remove_category_message(self, find_urls, arguments):
         return [], 'Категория удалена успешно!'
     
@@ -134,7 +143,6 @@ class BotHandler:
     def get_updates(self, offset=None, timeout=30):
         method = 'getUpdates'
         params = {'timeout': timeout, 'offset': offset}
-        print(requests.get(self.api_url + method, params).json())
         return requests.get(self.api_url + method, params).json()['result']
 
     def get_last_update(self):
