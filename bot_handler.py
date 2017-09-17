@@ -134,6 +134,7 @@ class BotHandler:
     def get_updates(self, offset=None, timeout=30):
         method = 'getUpdates'
         params = {'timeout': timeout, 'offset': offset}
+        print(requests.get(self.api_url + method, params).json())
         return requests.get(self.api_url + method, params).json()['result']
 
     def get_last_update(self):

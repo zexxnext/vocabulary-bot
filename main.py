@@ -1,7 +1,7 @@
 import requests  
 from bot_handler import BotHandler
 
-w_bot = BotHandler('439715244:AAFIfeze5ggTKd6PfVPoP6LXB0u6PD-2ojw')  
+w_bot = BotHandler('364308486:AAE4TPlG15NLID_r0RnjCm7kgiqGuEgDkm8')  
 
 def main():  
     new_offset = None
