@@ -1,7 +1,12 @@
+import os
 import requests  
 from bot_handler import BotHandler
 
-w_bot = BotHandler('364308486:AAE4TPlG15NLID_r0RnjCm7kgiqGuEgDkm8')  
+API_TOKEN = os.environ.get('API_TOKEN')
+if not API_TOKEN:
+    API_TOKEN = '364308486:AAE4TPlG15NLID_r0RnjCm7kgiqGuEgDkm8'
+		
+w_bot = BotHandler(API_TOKEN)  
 
 def main():  
     new_offset = None
