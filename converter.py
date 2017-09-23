@@ -1,10 +1,14 @@
 def to_string(message):
-    if isinstance(message, string):
+    if isinstance(message, str):
         return message
-    if isinstance(message[0], list):
+    if len(message) > 0 and isinstance(message[0], list):
         return to_string(message[0])
     return '\n'.join(message)
 
+def from_string(lst):
+    return lst.split('\n')
+    
+    
 def with_dct(fn):
     def wrapped(dct, filter):
         return to_string([fn(dct, key) for key in dct if filter(key)])

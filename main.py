@@ -4,8 +4,8 @@ from bot_handler import BotHandler
 
 API_TOKEN = os.environ.get('API_TOKEN')
 if not API_TOKEN:
-    API_TOKEN = '364308486:AAE4TPlG15NLID_r0RnjCm7kgiqGuEgDkm8'
-		
+    API_TOKEN = 'XXX'
+        
 w_bot = BotHandler(API_TOKEN)  
 
 def main():  
@@ -23,7 +23,10 @@ def main():
 
         if last_chat_text[0] == '/':
             command, *arguments = last_chat_text.split(" ")
-            w_bot.cmds[command](w_bot, last_chat_id, arguments)
+            try:
+                w_bot.cmds[command](w_bot, last_chat_id, arguments)
+            except KeyError:
+                w_bot.send_message(last_chat_id, "Нет такой команды.")
         else:
             w_urls = [url + last_chat_text for url in w_bot.find_urls(last_chat_id)]
 

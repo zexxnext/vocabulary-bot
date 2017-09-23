@@ -28,10 +28,10 @@ class BotHandler:
         return self.send_message(chat_id, text)
 
     def help_message(self, chat_id, arguments):
-        text = '''/help - помощь,
-/start - о боте,
-/add [category] url - добавить url,
-/remove [category] url - удалить url,
+        text = '''/help - помощь
+/start - о боте
+/add [category] url - добавить url
+/remove [category] url - удалить url
 /list [category] - список url
 /cremove category - удалить категорию
 /cadd category - добавить категорию
@@ -44,14 +44,11 @@ class BotHandler:
         return [create_from(item, filter) for item in self.urls.find({'chat_id': chat_id})]
 
     def find_list(self, chat_id, category):
-        return [category + ':'] + self.find(chat_id, converter.from_values, lambda x: x in category) + ['']
+        return [category + ':'] + self.find(chat_id, converter.from_values, lambda x: x == category) + ['']
 
     def replace(self, chat_id, category, find_urls):
         self.urls.replace_one({'chat_id': chat_id, str(category): {'$exists': True}}, \
                   {'chat_id': chat_id, category: find_urls}, upsert=True)
-                  
-    def remove(self, chat_id, category, find_urls):
-        self.urls.remove({'chat_id': chat_id, str(category): {'$exists': True}})
                   
     def send(fn):
         def wrapped(self, chat_id, arguments):
@@ -59,31 +56,29 @@ class BotHandler:
             self.send_message(chat_id, converter.to_string(answer))
         return wrapped
     
-    def change_urls(change):
-        def change_decorator(fn):
-            def wrapped(self, chat_id, arguments):
-                arguments = arguments[1:] if len(arguments) > 1 else arguments
-                category = arguments[0]
-                
-                find_urls = self.find(chat_id, converter.from_values, lambda x: x in category)   
-                if len(find_urls) == 0:
-                    category = self.default_category                
-                
-                find_urls, message = fn(self, find_urls, arguments)   
-                change(self, chat_id, category, find_urls)
-                    
-                return message
-            return wrapped
-        return change_decorator
+    def change_urls(fn):
+        def wrapped(self, chat_id, arguments):
+            category = arguments[0] if len(arguments) > 1 else self.default_category
+            arguments = arguments[1:] if len(arguments) > 1 else arguments
+           
+            find_urls = self.find(chat_id, converter.from_values, lambda x: x == category)   
+            
+            if len(find_urls) > 0:
+                find_urls = converter.from_string(find_urls[0])        
+            find_urls, message = fn(self, find_urls, arguments)   
+            self.replace(chat_id, category, find_urls)
+          
+            return message
+        return wrapped
 
     @send
-    @change_urls(replace)
+    @change_urls
     def add_message(self, find_urls, arguments):
         return find_urls + [url for url in arguments if url not in find_urls], \
             'Добавлено успешно!'
 
     @send
-    @change_urls(remove)
+    @change_urls
     def remove_message(self, find_urls, arguments):
         return [url for url in find_urls if url not in arguments], \
             'Удалено успешно!'
@@ -109,12 +104,12 @@ class BotHandler:
         return self.find(chat_id, converter.from_keys, BotHandler.not_service_args)
 
     @send
-    @change_urls(replace)
+    @change_urls
     def add_category_message(self, find_urls, arguments):
         return [], 'Категория добавлена успешно!'
 
     @send
-    @change_urls(remove)
+    @change_urls
     def remove_category_message(self, find_urls, arguments):
         return [], 'Категория удалена успешно!'
     
