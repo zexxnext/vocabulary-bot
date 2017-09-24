@@ -101,7 +101,7 @@ class BotHandler:
     @to_string              
     def find_urls(self, chat_id, category):
         return self.find(chat_id, converter.from_values, \
-            lambda x: x == category if category else BotHandler.not_service_args)
+            (lambda x: x == category) if category else BotHandler.not_service_args)
 
     @send
     def get_categories_message(self, chat_id, arguments):

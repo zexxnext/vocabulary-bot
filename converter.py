@@ -3,6 +3,7 @@ def to_string(message):
         return message
     if len(message) > 0 and isinstance(message[0], list):
         return to_string(message[0])
+    print(message)
     return '\n'.join(message)
 
 def from_string(lst):
