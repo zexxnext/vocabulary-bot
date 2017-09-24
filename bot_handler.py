@@ -94,12 +94,12 @@ class BotHandler:
 
     def to_string(find):
         def wrapped(self, chat_id, category):
-            return converter.to_string(find(chat_id, category)).split('\n')
+            return converter.to_string(find(self, chat_id, category)).split('\n')
         return wrapped              
                     
                     
     @to_string              
-    def find_urls(self, chat_id, category=None):
+    def find_urls(self, chat_id, category):
         return self.find(chat_id, converter.from_values, \
             lambda x: x == category if category else BotHandler.not_service_args)
 
