@@ -28,8 +28,10 @@ def main():
             except KeyError:
                 w_bot.send_message(last_chat_id, "Нет такой команды.")
         else:
-            w_urls = [url + last_chat_text for url in w_bot.find_urls(last_chat_id)]
-
+            words = last_chat_text.split(' ')
+            w_urls = [url + (words[1] if len(words) > 1 else last_chat_text) \
+                for url in w_bot.find_urls(last_chat_id)]
+            
             for url in w_urls:
                 w_bot.send_message(last_chat_id, url)
 
